@@ -275,7 +275,7 @@ static void format_line(void *avcl, int level, const char *fmt, va_list vl,
 
     if(*part[0].str || *part[1].str || *part[2].str || *part[3].str) {
         char lastc = part[3].len && part[3].len <= part[3].size ? part[3].str[part[3].len - 1] : 0;
-        *print_prefix = lastc == '\n' || lastc == '\r';
+        *print_prefix = '\n';
     }
 }
 
