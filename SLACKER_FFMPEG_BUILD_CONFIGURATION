@@ -1,0 +1,6 @@
+#
+# Build config for slacker
+#
+
+PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib64/pkgconfig:$HOME/ffmpeg_build/lib/pkgconfig" ./configure --prefix=/home/prdlxl/ffmpeg_build --pkg-config-flags=--static --extra-cflags="-I/home/prdlxl/ffmpeg_build/include -I/usr/local/cuda/include" --extra-ldflags="-L/home/prdlxl/ffmpeg_build/lib -L/usr/local/cuda/lib64" --extra-libs=-lpthread --extra-libs=-lm --bindir=/home/prdlxl/bin --enable-gpl --enable-libfdk_aac --enable-libfreetype --enable-libmp3lame --enable-libx264 --enable-libx265 --enable-openssl --enable-libndi_newtek --enable-decklink --enable-cuda --enable-cuvid --enable-nvenc --enable-nonfree --enable-libnpp
+ 
