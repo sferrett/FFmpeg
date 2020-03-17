@@ -84,32 +84,38 @@ static int decode_picture_timing(H264SEIPictureTiming *h, GetBitContext *gb,
             return AVERROR_INVALIDDATA;
 
         num_clock_ts = sei_num_clock_ts_table[h->pic_struct];
-
+        h->timecode_cnt = 0;
         for (i = 0; i < num_clock_ts; i++) {
-            if (get_bits(gb, 1)) {                /* clock_timestamp_flag */
+            if (get_bits(gb, 1)) {                      /* clock_timestamp_flag */
+                H264SEITimeCode *tc = &h->timecode[h->timecode_cnt++];
                 unsigned int full_timestamp_flag;
-
+                unsigned int counting_type, cnt_dropped_flag;
                 h->ct_type |= 1 << get_bits(gb, 2);
-                skip_bits(gb, 1);                 /* nuit_field_based_flag */
-                skip_bits(gb, 5);                 /* counting_type */
+                skip_bits(gb, 1);                       /* nuit_field_based_flag */
+                counting_type = get_bits(gb, 5);        /* counting_type */
                 full_timestamp_flag = get_bits(gb, 1);
-                skip_bits(gb, 1);                 /* discontinuity_flag */
-                skip_bits(gb, 1);                 /* cnt_dropped_flag */
-                skip_bits(gb, 8);                 /* n_frames */
+                skip_bits(gb, 1);                       /* discontinuity_flag */
+                cnt_dropped_flag = get_bits(gb, 1);      /* cnt_dropped_flag */
+                if (cnt_dropped_flag && counting_type > 1 && counting_type < 7)
+                    tc->dropframe = 1;
+                tc->frame = get_bits(gb, 8);         /* n_frames */
                 if (full_timestamp_flag) {
-                    skip_bits(gb, 6);             /* seconds_value 0..59 */
-                    skip_bits(gb, 6);             /* minutes_value 0..59 */
-                    skip_bits(gb, 5);             /* hours_value 0..23 */
+                    tc->full = 1;
+                    tc->seconds = get_bits(gb, 6); /* seconds_value 0..59 */
+                    tc->minutes = get_bits(gb, 6); /* minutes_value 0..59 */
+                    tc->hours = get_bits(gb, 5);   /* hours_value 0..23 */
                 } else {
-                    if (get_bits(gb, 1)) {        /* seconds_flag */
-                        skip_bits(gb, 6);         /* seconds_value range 0..59 */
-                        if (get_bits(gb, 1)) {    /* minutes_flag */
-                            skip_bits(gb, 6);     /* minutes_value 0..59 */
-                            if (get_bits(gb, 1))  /* hours_flag */
-                                skip_bits(gb, 5); /* hours_value 0..23 */
+                    tc->seconds = tc->minutes = tc->hours = tc->full = 0;
+                    if (get_bits(gb, 1)) {             /* seconds_flag */
+                        tc->seconds = get_bits(gb, 6);
+                        if (get_bits(gb, 1)) {         /* minutes_flag */
+                            tc->minutes = get_bits(gb, 6);
+                            if (get_bits(gb, 1))       /* hours_flag */
+                                tc->hours = get_bits(gb, 5);
                         }
                     }
                 }
+
                 if (sps->time_offset_length > 0)
                     skip_bits(gb,
                               sps->time_offset_length); /* time_offset */
@@ -241,14 +247,14 @@ static int decode_unregistered_user_data(H264SEIUnregistered *h, GetBitContext *
     uint8_t *user_data;
     int e, build, i;
 
-    if (size < 16 || size >= INT_MAX - 16)
+    if (size < 16 || size >= INT_MAX - 1)
         return AVERROR_INVALIDDATA;
 
-    user_data = av_malloc(16 + size + 1);
+    user_data = av_malloc(size + 1);
     if (!user_data)
         return AVERROR(ENOMEM);
 
-    for (i = 0; i < size + 16; i++)
+    for (i = 0; i < size; i++)
         user_data[i] = get_bits(gb, 8);
 
     user_data[i] = 0;

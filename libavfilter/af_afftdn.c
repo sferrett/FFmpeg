@@ -28,6 +28,7 @@
 #include "avfilter.h"
 #include "audio.h"
 #include "formats.h"
+#include "filters.h"
 
 #define C       (M_LN10 * 0.1)
 #define RATIO    0.98
@@ -140,24 +141,25 @@ typedef struct AudioFFTDeNoiseContext {
 } AudioFFTDeNoiseContext;
 
 #define OFFSET(x) offsetof(AudioFFTDeNoiseContext, x)
-#define A AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
+#define AF  AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
+#define AFR AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_RUNTIME_PARAM
 
 static const AVOption afftdn_options[] = {
-    { "nr", "set the noise reduction",    OFFSET(noise_reduction), AV_OPT_TYPE_FLOAT,  {.dbl = 12},          .01, 97, A },
-    { "nf", "set the noise floor",        OFFSET(noise_floor),     AV_OPT_TYPE_FLOAT,  {.dbl =-50},          -80,-20, A },
-    { "nt", "set the noise type",         OFFSET(noise_type),      AV_OPT_TYPE_INT,    {.i64 = WHITE_NOISE}, WHITE_NOISE, NB_NOISE-1, A, "type" },
-    {  "w", "white noise",                0,                       AV_OPT_TYPE_CONST,  {.i64 = WHITE_NOISE},   0,  0, A, "type" },
-    {  "v", "vinyl noise",                0,                       AV_OPT_TYPE_CONST,  {.i64 = VINYL_NOISE},   0,  0, A, "type" },
-    {  "s", "shellac noise",              0,                       AV_OPT_TYPE_CONST,  {.i64 = SHELLAC_NOISE}, 0,  0, A, "type" },
-    {  "c", "custom noise",               0,                       AV_OPT_TYPE_CONST,  {.i64 = CUSTOM_NOISE},  0,  0, A, "type" },
-    { "bn", "set the custom bands noise", OFFSET(band_noise_str),  AV_OPT_TYPE_STRING, {.str = 0},             0,  0, A },
-    { "rf", "set the residual floor",     OFFSET(residual_floor),  AV_OPT_TYPE_FLOAT,  {.dbl =-38},          -80,-20, A },
-    { "tn", "track noise",                OFFSET(track_noise),     AV_OPT_TYPE_BOOL,   {.i64 =  0},            0,  1, A },
-    { "tr", "track residual",             OFFSET(track_residual),  AV_OPT_TYPE_BOOL,   {.i64 =  0},            0,  1, A },
-    { "om", "set output mode",            OFFSET(output_mode),     AV_OPT_TYPE_INT,    {.i64 = OUT_MODE},      0,  NB_MODES-1, A, "mode" },
-    {  "i", "input",                      0,                       AV_OPT_TYPE_CONST,  {.i64 = IN_MODE},       0,  0, A, "mode" },
-    {  "o", "output",                     0,                       AV_OPT_TYPE_CONST,  {.i64 = OUT_MODE},      0,  0, A, "mode" },
-    {  "n", "noise",                      0,                       AV_OPT_TYPE_CONST,  {.i64 = NOISE_MODE},    0,  0, A, "mode" },
+    { "nr", "set the noise reduction",    OFFSET(noise_reduction), AV_OPT_TYPE_FLOAT,  {.dbl = 12},          .01, 97, AFR },
+    { "nf", "set the noise floor",        OFFSET(noise_floor),     AV_OPT_TYPE_FLOAT,  {.dbl =-50},          -80,-20, AFR },
+    { "nt", "set the noise type",         OFFSET(noise_type),      AV_OPT_TYPE_INT,    {.i64 = WHITE_NOISE}, WHITE_NOISE, NB_NOISE-1, AF, "type" },
+    {  "w", "white noise",                0,                       AV_OPT_TYPE_CONST,  {.i64 = WHITE_NOISE},   0,  0, AF, "type" },
+    {  "v", "vinyl noise",                0,                       AV_OPT_TYPE_CONST,  {.i64 = VINYL_NOISE},   0,  0, AF, "type" },
+    {  "s", "shellac noise",              0,                       AV_OPT_TYPE_CONST,  {.i64 = SHELLAC_NOISE}, 0,  0, AF, "type" },
+    {  "c", "custom noise",               0,                       AV_OPT_TYPE_CONST,  {.i64 = CUSTOM_NOISE},  0,  0, AF, "type" },
+    { "bn", "set the custom bands noise", OFFSET(band_noise_str),  AV_OPT_TYPE_STRING, {.str = 0},             0,  0, AF },
+    { "rf", "set the residual floor",     OFFSET(residual_floor),  AV_OPT_TYPE_FLOAT,  {.dbl =-38},          -80,-20, AFR },
+    { "tn", "track noise",                OFFSET(track_noise),     AV_OPT_TYPE_BOOL,   {.i64 =  0},            0,  1, AFR },
+    { "tr", "track residual",             OFFSET(track_residual),  AV_OPT_TYPE_BOOL,   {.i64 =  0},            0,  1, AFR },
+    { "om", "set output mode",            OFFSET(output_mode),     AV_OPT_TYPE_INT,    {.i64 = OUT_MODE},      0,  NB_MODES-1, AFR, "mode" },
+    {  "i", "input",                      0,                       AV_OPT_TYPE_CONST,  {.i64 = IN_MODE},       0,  0, AFR, "mode" },
+    {  "o", "output",                     0,                       AV_OPT_TYPE_CONST,  {.i64 = OUT_MODE},      0,  0, AFR, "mode" },
+    {  "n", "noise",                      0,                       AV_OPT_TYPE_CONST,  {.i64 = NOISE_MODE},    0,  0, AFR, "mode" },
     { NULL }
 };
 
@@ -563,7 +565,7 @@ static void read_custom_noise(AudioFFTDeNoiseContext *s, int ch)
 
         p = NULL;
 
-        ret = sscanf(arg, "%d", &band_noise[i]);
+        ret = av_sscanf(arg, "%d", &band_noise[i]);
         if (ret != 1) {
             av_log(s, AV_LOG_ERROR, "Custom band noise must be integer.\n");
             break;
@@ -1153,7 +1155,7 @@ static void get_auto_noise_levels(AudioFFTDeNoiseContext *s,
     }
 }
 
-static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
+static int output_frame(AVFilterLink *inlink)
 {
     AVFilterContext *ctx = inlink->dst;
     AVFilterLink *outlink = ctx->outputs[0];
@@ -1162,117 +1164,145 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     ThreadData td;
     int ret = 0;
 
-    if (s->pts == AV_NOPTS_VALUE)
-        s->pts = frame->pts;
+    in = ff_get_audio_buffer(outlink, s->window_length);
+    if (!in)
+        return AVERROR(ENOMEM);
 
-    ret = av_audio_fifo_write(s->fifo, (void **)frame->extended_data, frame->nb_samples);
-    av_frame_free(&frame);
+    ret = av_audio_fifo_peek(s->fifo, (void **)in->extended_data, s->window_length);
     if (ret < 0)
-        return ret;
+        goto end;
 
-    while (av_audio_fifo_size(s->fifo) >= s->window_length) {
-        if (!in) {
-            in = ff_get_audio_buffer(outlink, s->window_length);
-            if (!in)
-                return AVERROR(ENOMEM);
-        }
-
-        ret = av_audio_fifo_peek(s->fifo, (void **)in->extended_data, s->window_length);
-        if (ret < 0)
-            break;
-
-        if (s->track_noise) {
-            for (int ch = 0; ch < inlink->channels; ch++) {
-                DeNoiseChannel *dnch = &s->dnch[ch];
-                double levels[15];
-
-                get_auto_noise_levels(s, dnch, levels);
-                set_noise_profile(s, dnch, levels, 0);
-            }
-
-            if (s->noise_floor != s->last_noise_floor)
-                set_parameters(s);
-        }
-
-        if (s->sample_noise_start) {
-            for (int ch = 0; ch < inlink->channels; ch++) {
-                DeNoiseChannel *dnch = &s->dnch[ch];
-
-                init_sample_noise(dnch);
-            }
-            s->sample_noise_start = 0;
-            s->sample_noise = 1;
-        }
-
-        if (s->sample_noise) {
-            for (int ch = 0; ch < inlink->channels; ch++) {
-                DeNoiseChannel *dnch = &s->dnch[ch];
-
-                sample_noise_block(s, dnch, in, ch);
-            }
-        }
-
-        if (s->sample_noise_end) {
-            for (int ch = 0; ch < inlink->channels; ch++) {
-                DeNoiseChannel *dnch = &s->dnch[ch];
-                double sample_noise[15];
-
-                finish_sample_noise(s, dnch, sample_noise);
-                set_noise_profile(s, dnch, sample_noise, 1);
-                set_band_parameters(s, dnch);
-            }
-            s->sample_noise = 0;
-            s->sample_noise_end = 0;
-        }
-
-        s->block_count++;
-        td.in = in;
-        ctx->internal->execute(ctx, filter_channel, &td, NULL,
-                               FFMIN(outlink->channels, ff_filter_get_nb_threads(ctx)));
-
-        out = ff_get_audio_buffer(outlink, s->sample_advance);
-        if (!out) {
-            ret = AVERROR(ENOMEM);
-            break;
-        }
-
+    if (s->track_noise) {
         for (int ch = 0; ch < inlink->channels; ch++) {
             DeNoiseChannel *dnch = &s->dnch[ch];
-            double *src = dnch->out_samples;
-            float *orig = (float *)in->extended_data[ch];
-            float *dst = (float *)out->extended_data[ch];
+            double levels[15];
 
-            switch (s->output_mode) {
-            case IN_MODE:
-                for (int m = 0; m < s->sample_advance; m++)
-                    dst[m] = orig[m];
-                break;
-            case OUT_MODE:
-                for (int m = 0; m < s->sample_advance; m++)
-                    dst[m] = src[m];
-                break;
-            case NOISE_MODE:
-                for (int m = 0; m < s->sample_advance; m++)
-                    dst[m] = orig[m] - src[m];
-                break;
-            default:
-                return AVERROR_BUG;
-            }
-            memmove(src, src + s->sample_advance, (s->window_length - s->sample_advance) * sizeof(*src));
-            memset(src + (s->window_length - s->sample_advance), 0, s->sample_advance * sizeof(*src));
+            get_auto_noise_levels(s, dnch, levels);
+            set_noise_profile(s, dnch, levels, 0);
         }
 
-        av_audio_fifo_drain(s->fifo, s->sample_advance);
-
-        out->pts = s->pts;
-        ret = ff_filter_frame(outlink, out);
-        if (ret < 0)
-            break;
-        s->pts += s->sample_advance;
+        if (s->noise_floor != s->last_noise_floor)
+            set_parameters(s);
     }
+
+    if (s->sample_noise_start) {
+        for (int ch = 0; ch < inlink->channels; ch++) {
+            DeNoiseChannel *dnch = &s->dnch[ch];
+
+            init_sample_noise(dnch);
+        }
+        s->sample_noise_start = 0;
+        s->sample_noise = 1;
+    }
+
+    if (s->sample_noise) {
+        for (int ch = 0; ch < inlink->channels; ch++) {
+            DeNoiseChannel *dnch = &s->dnch[ch];
+
+            sample_noise_block(s, dnch, in, ch);
+        }
+    }
+
+    if (s->sample_noise_end) {
+        for (int ch = 0; ch < inlink->channels; ch++) {
+            DeNoiseChannel *dnch = &s->dnch[ch];
+            double sample_noise[15];
+
+            finish_sample_noise(s, dnch, sample_noise);
+            set_noise_profile(s, dnch, sample_noise, 1);
+            set_band_parameters(s, dnch);
+        }
+        s->sample_noise = 0;
+        s->sample_noise_end = 0;
+    }
+
+    s->block_count++;
+    td.in = in;
+    ctx->internal->execute(ctx, filter_channel, &td, NULL,
+                           FFMIN(outlink->channels, ff_filter_get_nb_threads(ctx)));
+
+    out = ff_get_audio_buffer(outlink, s->sample_advance);
+    if (!out) {
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
+
+    for (int ch = 0; ch < inlink->channels; ch++) {
+        DeNoiseChannel *dnch = &s->dnch[ch];
+        double *src = dnch->out_samples;
+        float *orig = (float *)in->extended_data[ch];
+        float *dst = (float *)out->extended_data[ch];
+
+        switch (s->output_mode) {
+        case IN_MODE:
+            for (int m = 0; m < s->sample_advance; m++)
+                dst[m] = orig[m];
+            break;
+        case OUT_MODE:
+            for (int m = 0; m < s->sample_advance; m++)
+                dst[m] = src[m];
+            break;
+        case NOISE_MODE:
+            for (int m = 0; m < s->sample_advance; m++)
+                dst[m] = orig[m] - src[m];
+            break;
+        default:
+            av_frame_free(&out);
+            ret = AVERROR_BUG;
+            goto end;
+        }
+        memmove(src, src + s->sample_advance, (s->window_length - s->sample_advance) * sizeof(*src));
+        memset(src + (s->window_length - s->sample_advance), 0, s->sample_advance * sizeof(*src));
+    }
+
+    av_audio_fifo_drain(s->fifo, s->sample_advance);
+
+    out->pts = s->pts;
+    ret = ff_filter_frame(outlink, out);
+    if (ret < 0)
+        goto end;
+    s->pts += av_rescale_q(s->sample_advance, (AVRational){1, outlink->sample_rate}, outlink->time_base);
+end:
     av_frame_free(&in);
 
     return ret;
+}
+
+static int activate(AVFilterContext *ctx)
+{
+    AVFilterLink *inlink = ctx->inputs[0];
+    AVFilterLink *outlink = ctx->outputs[0];
+    AudioFFTDeNoiseContext *s = ctx->priv;
+    AVFrame *frame = NULL;
+    int ret;
+
+    FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
+
+    ret = ff_inlink_consume_frame(inlink, &frame);
+    if (ret < 0)
+        return ret;
+
+    if (ret > 0) {
+        if (s->pts == AV_NOPTS_VALUE)
+            s->pts = frame->pts;
+
+        ret = av_audio_fifo_write(s->fifo, (void **)frame->extended_data, frame->nb_samples);
+        av_frame_free(&frame);
+        if (ret < 0)
+            return ret;
+    }
+
+    if (av_audio_fifo_size(s->fifo) >= s->window_length)
+        return output_frame(inlink);
+
+    FF_FILTER_FORWARD_STATUS(inlink, outlink);
+    if (ff_outlink_frame_wanted(outlink) &&
+        av_audio_fifo_size(s->fifo) < s->window_length) {
+        ff_inlink_request_frame(inlink);
+        return 0;
+    }
+
+    return FFERROR_NOT_READY;
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
@@ -1346,41 +1376,23 @@ static int process_command(AVFilterContext *ctx, const char *cmd, const char *ar
 {
     AudioFFTDeNoiseContext *s = ctx->priv;
     int need_reset = 0;
+    int ret = 0;
 
     if (!strcmp(cmd, "sample_noise") ||
         !strcmp(cmd, "sn")) {
         if (!strcmp(args, "start")) {
             s->sample_noise_start = 1;
             s->sample_noise_end = 0;
-        } else if (!strcmp(args, "end")) {
+        } else if (!strcmp(args, "end") ||
+                   !strcmp(args, "stop")) {
             s->sample_noise_start = 0;
             s->sample_noise_end = 1;
         }
-    } else if (!strcmp(cmd, "nr") ||
-               !strcmp(cmd, "noise_reduction")) {
-        float nr;
-
-        if (sscanf(args, "%f", &nr) == 1) {
-            s->noise_reduction = av_clipf(nr, 0.01, 97);
-            need_reset = 1;
-        }
-    } else if (!strcmp(cmd, "nf") ||
-               !strcmp(cmd, "noise_floor")) {
-        float nf;
-
-        if (sscanf(args, "%f", &nf) == 1) {
-            s->noise_floor = av_clipf(nf, -80, -20);
-            need_reset = 1;
-        }
-    } else if (!strcmp(cmd, "output_mode") ||
-               !strcmp(cmd, "om")) {
-        if (!strcmp(args, "i")) {
-            s->output_mode = IN_MODE;
-        } else if (!strcmp(args, "o")) {
-            s->output_mode = OUT_MODE;
-        } else if (!strcmp(args, "n")) {
-            s->output_mode = NOISE_MODE;
-        }
+    } else {
+        ret = ff_filter_process_command(ctx, cmd, args, res, res_len, flags);
+        if (ret < 0)
+            return ret;
+        need_reset = 1;
     }
 
     if (need_reset)
@@ -1393,7 +1405,6 @@ static const AVFilterPad inputs[] = {
     {
         .name         = "default",
         .type         = AVMEDIA_TYPE_AUDIO,
-        .filter_frame = filter_frame,
         .config_props = config_input,
     },
     { NULL }
@@ -1413,6 +1424,7 @@ AVFilter ff_af_afftdn = {
     .query_formats   = query_formats,
     .priv_size       = sizeof(AudioFFTDeNoiseContext),
     .priv_class      = &afftdn_class,
+    .activate        = activate,
     .uninit          = uninit,
     .inputs          = inputs,
     .outputs         = outputs,
