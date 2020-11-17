@@ -389,7 +389,7 @@ static const struct {
     MAP(HEVC,        HEVC_MAIN_STILL_PICTURE,
                                       HEVCMain    ),
 #endif
-#if VA_CHECK_VERSION(1, 2, 0)
+#if VA_CHECK_VERSION(1, 2, 0) && CONFIG_HEVC_VAAPI_HWACCEL
     MAP(HEVC,        HEVC_REXT,       None,
                  ff_vaapi_parse_hevc_rext_profile ),
 #endif
@@ -410,6 +410,11 @@ static const struct {
 #if VA_CHECK_VERSION(0, 39, 0)
     MAP(VP9,         VP9_2,           VP9Profile2 ),
 #endif
+#if VA_CHECK_VERSION(1, 8, 0)
+    MAP(AV1,         AV1_MAIN,        AV1Profile0),
+    MAP(AV1,         AV1_HIGH,        AV1Profile1),
+#endif
+
 #undef MAP
 };
 
@@ -575,6 +580,7 @@ static int vaapi_decode_make_config(AVCodecContext *avctx,
             frames->initial_pool_size += 16;
             break;
         case AV_CODEC_ID_VP9:
+        case AV_CODEC_ID_AV1:
             frames->initial_pool_size += 8;
             break;
         case AV_CODEC_ID_VP8:
